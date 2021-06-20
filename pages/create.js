@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Form,
   Input,
@@ -11,6 +11,7 @@ import {
 } from "semantic-ui-react";
 import axios from "axios";
 import baseUrl from "../utils/baseUrl";
+import catchErrors from "../utils/catchErrors";
 
 const INITIAL_PRODUCT = {
   name: "",
@@ -25,6 +26,13 @@ function CreateProduct() {
   const [mediaPreview, setMediaPreview] = useState("");
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [disabled, setDisabled] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const isProduct = Object.values(product).every((el) => Boolean(el));
+    isProduct ? setDisabled(false) : setDisabled(true);
+  }, [product]);
 
   function handleChange(e) {
     const { name, value, files } = e.target;
@@ -47,16 +55,21 @@ function CreateProduct() {
   }
 
   async function handleSubmit(e) {
-    e.preventDefault();
-    setLoading(true);
-    const mediaUrl = await handleImageUpload();
-    const url = `${baseUrl}/api/product`;
-    const { name, price, description } = product;
-    const payload = { name, price, description, mediaUrl };
-    await axios.post(url, payload);
-    setLoading(false);
-    setSuccess(true);
-    setProduct(INITIAL_PRODUCT);
+    try {
+      e.preventDefault();
+      setLoading(true);
+      const mediaUrl = await handleImageUpload();
+      const url = `${baseUrl}/api/product`;
+      const { name, price, description } = product;
+      const payload = { name, price, description, mediaUrl };
+      await axios.post(url, payload);
+      setSuccess(true);
+      setProduct(INITIAL_PRODUCT);
+    } catch (error) {
+      catchErrors(error, setError);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
@@ -64,7 +77,13 @@ function CreateProduct() {
       <Header as="h2" block>
         <Icon name="add" color="orange" /> Create New Product
       </Header>
-      <Form loading={loading} success={success} onSubmit={handleSubmit}>
+      <Form
+        loading={loading}
+        error={Boolean(error)}
+        success={success}
+        onSubmit={handleSubmit}
+      >
+        <Message error header="Oops!" content={error} />
         <Message
           icon="check"
           header="Success!"
@@ -116,7 +135,7 @@ function CreateProduct() {
 
         <Form.Field
           control={Button}
-          disabled={loading}
+          disabled={disabled || loading}
           color="blue"
           icon="pencil alternate"
           content="Submit"
